@@ -1,5 +1,20 @@
-import urllib
-import urllib2
+try:
+    # Python3.0 and later
+    from urllib.parse import quote_plus
+    from urllib.error import HTTPError, URLError
+    from urllib.request import (
+        urlopen, build_opener, install_opener,
+        HTTPBasicAuthHandler, HTTPHandler, ProxyHandler, Request
+    )
+except ImportError:
+    # Python2
+    from urllib import quote_plus
+    from urllib2 import (
+        urlopen, build_opener, install_opener,
+        HTTPBasicAuthHandler, HTTPHandler, ProxyHandler, Request,
+        HTTPError, URLError
+    )
+
 import json
 from collections import defaultdict
 import time
@@ -86,8 +101,8 @@ def urlencode_utf8(params):
 
     params = (
         '='.join((
-            urllib.quote_plus(k.encode('utf8'), safe='/'),
-            urllib.quote_plus(v.encode('utf8'), safe='/')
+            quote_plus(k.encode('utf8'), safe='/'),
+            quote_plus(v.encode('utf8'), safe='/')
         )) for k, v in params
     )
 
@@ -112,10 +127,9 @@ class GCM(object):
                 protocol = url.split(':')[0]
                 proxy = {protocol: proxy}
 
-            auth = urllib2.HTTPBasicAuthHandler()
-            opener = urllib2.build_opener(
-                urllib2.ProxyHandler(proxy), auth, urllib2.HTTPHandler)
-            urllib2.install_opener(opener)
+            auth = HTTPBasicAuthHandler()
+            opener = build_opener(ProxyHandler(proxy), auth, HTTPHandler)
+            install_opener(opener)
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
                           delay_while_idle=False, time_to_live=None, is_json=True, dry_run=False):
@@ -182,11 +196,11 @@ class GCM(object):
 
         if not is_json:
             data = urlencode_utf8(data)
-        req = urllib2.Request(self.url, data, headers)
+        req = Request(self.url, data.encode('utf-8'), headers)
 
         try:
-            response = urllib2.urlopen(req).read()
-        except urllib2.HTTPError as e:
+            response = urlopen(req).read().decode('utf-8')
+        except HTTPError as e:
             if e.code == 400:
                 raise GCMMalformedJsonException(
                     "The request could not be parsed as JSON")
@@ -198,7 +212,7 @@ class GCM(object):
             else:
                 error = "GCM service error: %d" % e.code
                 raise GCMUnavailableException(error)
-        except urllib2.URLError as e:
+        except URLError as e:
             raise GCMConnectionException(
                 "There was an internal error in the GCM server while trying to process the request")
 
